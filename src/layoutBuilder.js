@@ -245,7 +245,7 @@ LayoutBuilder.prototype.addWatermark = function (watermark, fontProvider, defaul
 		watermark = {'text': watermark};
 	}
 
-	if (!watermark.text) { // empty watermark text
+	if (!watermark.text && !watermark.leftBorderText/*//MAX*/) { // empty watermark text
 		return;
 	}
 
@@ -260,7 +260,8 @@ LayoutBuilder.prototype.addWatermark = function (watermark, fontProvider, defaul
 		font: fontProvider.provideFont(watermark.font, watermark.bold, watermark.italics),
 		size: getSize(this.pageSize, watermark, fontProvider),
 		color: watermark.color,
-		opacity: watermark.opacity
+		opacity: watermark.opacity,
+    leftBorderText:watermark.leftBorderText //MAX
 	};
 
 	var pages = this.writer.context().pages;
@@ -399,7 +400,9 @@ LayoutBuilder.prototype.processNode = function (node) {
 		}
 
 		if (margin) {
-			self.writer.context().moveDown(margin[1]);
+			//MAX
+			const marginDown=isFunction(margin[1])?margin[1](self.writer.context()):margin[1]
+			self.writer.context().moveDown(marginDown);
 			self.writer.context().addMargin(margin[0], margin[2]);
 		}
 
@@ -577,16 +580,20 @@ LayoutBuilder.prototype.processList = function (orderedList, node) {
 // tables
 LayoutBuilder.prototype.processTable = function (tableNode) {
 	var processor = new TableProcessor(tableNode);
+	const {writer}=this
+	processor.beginTable(writer);
 
-	processor.beginTable(this.writer);
-
-	var rowHeights = tableNode.table.heights;
-	for (var i = 0, l = tableNode.table.body.length; i < l; i++) {
-		processor.beginRow(i, this.writer);
+	//MAX
+	const {table}=tableNode
+	var rowHeights = table.heights;
+	var rows=table.body
+	for (var i = 0, l = rows.length; i < l; i++) {
+		const iRow=rows[i]
+		processor.beginRow(i, writer);
 
 		var height;
 		if (isFunction(rowHeights)) {
-			height = rowHeights(i);
+			height = rowHeights(i,iRow,writer.writer.context);//MAX pass context and row
 		} else if (isArray(rowHeights)) {
 			height = rowHeights[i];
 		} else {
@@ -597,13 +604,14 @@ LayoutBuilder.prototype.processTable = function (tableNode) {
 			height = undefined;
 		}
 
-		var result = this.processRow(tableNode.table.body[i], tableNode.table.widths, tableNode._offsets.offsets, tableNode.table.body, i, height);
+		//MAX: simplify refs
+		var result = this.processRow(iRow, table.widths, tableNode._offsets.offsets, rows, i, height);
 		addAll(tableNode.positions, result.positions);
 
-		processor.endRow(i, this.writer, result.pageBreaks);
+		processor.endRow(i, writer, result.pageBreaks);
 	}
 
-	processor.endTable(this.writer);
+	processor.endTable(writer);
 };
 
 // leafs (texts)
