@@ -144,8 +144,12 @@ function setMetadata(docDefinition, pdfKitDoc) {
 		return key.replace(/\s+/g, '');
 	}
 
-	pdfKitDoc.info.Producer = 'pdfmake';
-	pdfKitDoc.info.Creator = 'pdfmake';
+	//MAX
+	pdfKitDoc._root.data.OpenAction = [0, 'Fit'];
+
+	//MAX: allow to set my own producer
+	pdfKitDoc.info.Producer =pdfKitDoc.info.Producer || 'pdfmake';
+	pdfKitDoc.info.Creator =pdfKitDoc.info.Creator ||  'pdfmake';
 
 	if (docDefinition.info) {
 		for (var key in docDefinition.info) {
@@ -417,22 +421,51 @@ function renderLine(line, x, y, pdfKitDoc) {
 function renderWatermark(page, pdfKitDoc) {
 	var watermark = page.watermark;
 
-	pdfKitDoc.fill(watermark.color);
-	pdfKitDoc.opacity(watermark.opacity);
+	//MAX
+	if(watermark.text) {
+			pdfKitDoc.fill(watermark.color);
+			pdfKitDoc.opacity(watermark.opacity);
 
-	pdfKitDoc.save();
+			pdfKitDoc.save();
 
-	var angle = Math.atan2(pdfKitDoc.page.height, pdfKitDoc.page.width) * -180 / Math.PI;
-	pdfKitDoc.rotate(angle, {origin: [pdfKitDoc.page.width / 2, pdfKitDoc.page.height / 2]});
+			var angle = Math.atan2(pdfKitDoc.page.height, pdfKitDoc.page.width) * -180 / Math.PI;
+			pdfKitDoc.rotate(angle, {origin: [pdfKitDoc.page.width / 2, pdfKitDoc.page.height / 2]});
 
-	var x = pdfKitDoc.page.width / 2 - watermark.size.size.width / 2;
-	var y = pdfKitDoc.page.height / 2 - watermark.size.size.height / 4;
+			var x = pdfKitDoc.page.width / 2 - watermark.size.size.width / 2;
+			var y = pdfKitDoc.page.height / 2 - watermark.size.size.height / 4;
 
-	pdfKitDoc._font = watermark.font;
-	pdfKitDoc.fontSize(watermark.size.fontSize);
-	pdfKitDoc.text(watermark.text, x, y, {lineBreak: false});
+			pdfKitDoc._font = watermark.font;
+			pdfKitDoc.fontSize(watermark.size.fontSize);
+			pdfKitDoc.text(watermark.text, x, y, {lineBreak: false});
 
-	pdfKitDoc.restore();
+			pdfKitDoc.restore();
+	}
+	if(watermark.leftBorderText) {
+			let watermark=_.merge({},_.clone(page.watermark),{
+					color:'black',
+					opacity:0.9,
+					size:{fontSize:8},
+					marginTop:5
+					}, page.watermark.leftBorderText);
+
+			pdfKitDoc.fill(watermark.color);
+			pdfKitDoc.opacity(watermark.opacity);
+			pdfKitDoc.save();
+
+			pdfKitDoc.rotate(-90, {origin: [0, pdfKitDoc.page.height]});
+
+			pdfKitDoc._font = watermark.font;
+			pdfKitDoc.fontSize(watermark.size.fontSize)
+			var stringWidth=pdfKitDoc.widthOfString(watermark.text)
+			var x=0
+			//center
+			if(stringWidth<pdfKitDoc.page.height) {
+					x=(pdfKitDoc.page.height-stringWidth)/2
+			}
+			pdfKitDoc.text(watermark.text, x, pdfKitDoc.page.height+watermark.marginTop, {lineBreak: false});
+
+			pdfKitDoc.restore();
+	}
 }
 
 function renderVector(vector, pdfKitDoc) {
