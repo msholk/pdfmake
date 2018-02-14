@@ -14,6 +14,10 @@ ImageMeasure.prototype.measureImage = function (src) {
 	if (!this.pdfKitDoc._imageRegistry[src]) {
 		label = 'I' + (++this.pdfKitDoc._imageCount);
 		try {
+			//MAX
+			if(""+src =="[object ArrayBuffer]") {
+				src = new Buffer(new Uint8Array(src));
+			}
 			image = PDFImage.open(realImageSrc(src), label);
 		} catch (error) {
 			image = null;
