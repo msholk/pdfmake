@@ -1,6 +1,6 @@
 var gulp = require('gulp');
 var webpack = require('webpack-stream');
-var uglify = require('gulp-uglify');
+var uglify = require('gulp-uglifyes');
 var rename = require('gulp-rename');
 var sourcemaps = require('gulp-sourcemaps');
 var replace = require('gulp-replace');
@@ -17,6 +17,8 @@ var DEBUG = process.env.NODE_ENV === 'debug',
 var banner = '/*! <%= pkg.name %> v<%= pkg.version %>, @license <%= pkg.license %>, @link <%= pkg.homepage %> */\n';
 
 var uglifyOptions = {
+	mangle: false,
+  ecma: 6,
 	compress: {
 		drop_console: true
 	},

@@ -549,6 +549,9 @@ function renderImage(image, x, y, pdfKitDoc) {
 	if (image.link) {
 		pdfKitDoc.link(image.x, image.y, image._width, image._height, image.link);
 	}
+	if(image.onDraw) {
+      image.onDraw(image, x, y, pdfKitDoc)
+  }
 }
 
 function beginClip(rect, pdfKitDoc) {
