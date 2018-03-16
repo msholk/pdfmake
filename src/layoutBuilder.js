@@ -16,7 +16,7 @@ var fontStringify = require('./helpers').fontStringify;
 var isFunction = require('./helpers').isFunction;
 var TextTools = require('./textTools');
 var StyleContextStack = require('./styleContextStack');
-var _ = require('lodash');
+var _ = require('lodash');//MAX
 
 function addAll(target, otherArray) {
 	otherArray.forEach(function (item) {
@@ -336,7 +336,7 @@ function decorateNode(node) {
 	};
 }
 
-LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
+LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {//MAX +onCalculatePage
 	var self = this;
 
 	this.linearNodeList.push(node);
@@ -371,7 +371,7 @@ LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
 		} else if (node.table) {
 			self.processTable(node);
 		} else if (node.text !== undefined) {
-			self.processLeaf(node,onCalculatePage);
+			self.processLeaf(node,onCalculatePage);//MAX +onCalculatePage
 		} else if (node.toc) {
 			self.processToc(node);
 		} else if (node.image) {
@@ -423,16 +423,18 @@ LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
 // vertical container
 LayoutBuilder.prototype.processVerticalContainer = function (node) {
 	var self = this;
-	var lines=[];
+	var lines=[];//MAX collect lines:columns proj
 
 	node.stack.forEach(function (item) {
 		self.processNode(item,function(newLines){
+		//MAX callback:collect lines:columns proj
         lines=_.concat(lines,newLines);
     });
 		addAll(node.positions, item.positions);
 
 		//TODO: paragraph gap
 	});
+	//MAX callback:collect lines:columns proj
 	if(node.onCalculatePage) {
       node.onCalculatePage(lines);
   }
@@ -623,7 +625,7 @@ LayoutBuilder.prototype.processTable = function (tableNode) {
 };
 
 // leafs (texts)
-LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
+LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {//MAX callback:collect lines:columns proj
 	var line = this.buildNextLine(node);
 	var currentHeight = (line) ? line.getHeight() : 0;
 	var maxHeight = node.maxHeight || -1;
@@ -635,7 +637,7 @@ LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
 	if (node._pageRef) {
 		line._pageNodeRef = node._pageRef._nodeRef;
 	}
-
+	//MAX collect lines:columns proj
 	var lines = [line];
 	if(onCalculatePage) {
 		this.writer.tracker.events.pageChanged=this.writer.tracker.events.pageChanged || [];
@@ -653,10 +655,12 @@ LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
 		node.positions.push(positions);
 		line = this.buildNextLine(node);
 		if (line) {
+			//MAX collect lines:columns proj
 			lines.push(line);
 			currentHeight += line.getHeight();
 		}
 	}
+	//MAX callback:collect lines:columns proj
 	if(onCalculatePage) {
       //  console.log("PAGE CALCULATED")
         //console.log(lines)
