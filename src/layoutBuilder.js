@@ -16,6 +16,7 @@ var fontStringify = require('./helpers').fontStringify;
 var isFunction = require('./helpers').isFunction;
 var TextTools = require('./textTools');
 var StyleContextStack = require('./styleContextStack');
+var _ = require('lodash');
 
 function addAll(target, otherArray) {
 	otherArray.forEach(function (item) {
@@ -335,7 +336,7 @@ function decorateNode(node) {
 	};
 }
 
-LayoutBuilder.prototype.processNode = function (node) {
+LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
 	var self = this;
 
 	this.linearNodeList.push(node);
@@ -370,7 +371,7 @@ LayoutBuilder.prototype.processNode = function (node) {
 		} else if (node.table) {
 			self.processTable(node);
 		} else if (node.text !== undefined) {
-			self.processLeaf(node);
+			self.processLeaf(node,onCalculatePage);
 		} else if (node.toc) {
 			self.processToc(node);
 		} else if (node.image) {
@@ -422,12 +423,19 @@ LayoutBuilder.prototype.processNode = function (node) {
 // vertical container
 LayoutBuilder.prototype.processVerticalContainer = function (node) {
 	var self = this;
+	var lines=[];
+
 	node.stack.forEach(function (item) {
-		self.processNode(item);
+		self.processNode(item,function(newLines){
+        lines=_.concat(lines,newLines);
+    });
 		addAll(node.positions, item.positions);
 
 		//TODO: paragraph gap
 	});
+	if(node.onCalculatePage) {
+      node.onCalculatePage(lines);
+  }
 };
 
 // columns
@@ -615,7 +623,7 @@ LayoutBuilder.prototype.processTable = function (tableNode) {
 };
 
 // leafs (texts)
-LayoutBuilder.prototype.processLeaf = function (node) {
+LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
 	var line = this.buildNextLine(node);
 	var currentHeight = (line) ? line.getHeight() : 0;
 	var maxHeight = node.maxHeight || -1;
@@ -628,14 +636,32 @@ LayoutBuilder.prototype.processLeaf = function (node) {
 		line._pageNodeRef = node._pageRef._nodeRef;
 	}
 
+	var lines = [line];
+	if(onCalculatePage) {
+		this.writer.tracker.events.pageChanged=this.writer.tracker.events.pageChanged || [];
+		this.writer.tracker.events.pageChanged.push(function(){
+			//	console.log(node)
+			var lastLine=lines.pop();
+			lines.push({columnBreak:true});
+			lines.push(lastLine);
+		});
+	}
+
+
 	while (line && (maxHeight === -1 || currentHeight < maxHeight)) {
 		var positions = this.writer.addLine(line);
 		node.positions.push(positions);
 		line = this.buildNextLine(node);
 		if (line) {
+			lines.push(line);
 			currentHeight += line.getHeight();
 		}
 	}
+	if(onCalculatePage) {
+      //  console.log("PAGE CALCULATED")
+        //console.log(lines)
+        onCalculatePage(lines);
+    }
 };
 
 LayoutBuilder.prototype.processToc = function (node) {
