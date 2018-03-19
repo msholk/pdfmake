@@ -126,6 +126,73 @@ TableProcessor.prototype.onRowBreak = function (rowIndex, writer) {
 	};
 };
 
+//MAX
+TableProcessor.prototype.onBeforeRowBreak = function (rowIndex, writer) {//MAX2
+	var self = this;
+	return function () {
+      var lineIndex=0,overrideY=0,overrideX=-5
+        var lineWidth = self.layout.hLineWidth(0, self.tableNode);
+    	if (lineWidth) {
+    		var offset = lineWidth / 2;
+    		var currentLine = null;
+    		var body = self.tableNode.table.body;
+
+    		for (var i = 0, l = self.rowSpanData.length; i < l; i++) {
+    			var data = self.rowSpanData[i];
+    			var shouldDrawLine = !data.rowSpan;
+
+    			// draw only if the current cell requires a top border or the cell in the
+    			// row above requires a bottom border
+    			if (shouldDrawLine && i < l - 1) {
+    				var topBorder = false, bottomBorder = false;
+
+    				// the current cell
+    				if (lineIndex < body.length) {
+    					var cell = body[lineIndex][i];
+    					topBorder = cell.border ? cell.border[1] : self.layout.defaultBorder;
+    				}
+
+    				// the cell in the row above
+    				if (lineIndex > 0) {
+    					var cellAbove = body[lineIndex - 1][i];
+    					bottomBorder = cellAbove.border ? cellAbove.border[3] : self.layout.defaultBorder;
+    				}
+
+    				shouldDrawLine = true;
+    			}
+
+    			if (!currentLine && shouldDrawLine) {
+    				currentLine = {left: data.left, width: 0};
+    			}
+
+    			if (shouldDrawLine) {
+    				currentLine.width += (data.width || 0);
+    			}
+
+    			var y = (overrideY || 0) + offset;
+
+    			if (!shouldDrawLine || i === l - 1) {
+    				if (currentLine && currentLine.width) {
+    					writer.addVector({
+    						type: 'line',
+    						x1: currentLine.left+overrideX,
+    						x2: currentLine.left + currentLine.width+overrideX,
+    						y1: y,
+    						y2: y,
+    						lineWidth: lineWidth,
+    						lineColor: isFunction(self.layout.hLineColor) ? self.layout.hLineColor(lineIndex, self.tableNode) : self.layout.hLineColor
+    					}, false, overrideY);
+    					currentLine = null;
+    				}
+    			}
+    		}
+
+    	}
+
+	};
+};
+
+
 TableProcessor.prototype.beginRow = function (rowIndex, writer) {
 	this.topLineWidth = this.layout.hLineWidth(rowIndex, this.tableNode);
 	this.rowPaddingTop = this.layout.paddingTop(rowIndex, this.tableNode);
@@ -134,6 +201,12 @@ TableProcessor.prototype.beginRow = function (rowIndex, writer) {
 
 	this.rowCallback = this.onRowBreak(rowIndex, writer);
 	writer.tracker.startTracking('pageChanged', this.rowCallback);
+
+	//MAX
+	if(this.tableNode.lineOnBreakRow) {
+			this.beforeRowBreakCallback = this.onBeforeRowBreak(rowIndex, writer);
+			writer.tracker.startTracking('beforePageChanged', this.beforeRowBreakCallback);//MAX2
+	}
 	if (this.dontBreakRows) {
 		writer.beginUnbreakableBlock();
 	}
@@ -233,6 +306,8 @@ TableProcessor.prototype.endRow = function (rowIndex, writer, pageBreaks) {
 	var l, i;
 	var self = this;
 	writer.tracker.stopTracking('pageChanged', this.rowCallback);
+	//MAX
+	writer.tracker.stopTracking('beforePageChanged', this.onBeforeRowBreak);
 	writer.context().moveDown(this.layout.paddingBottom(rowIndex, this.tableNode));
 	writer.context().availableHeight += this.reservedAtBottom;
 

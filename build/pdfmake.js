@@ -12995,7 +12995,7 @@ function fromByteArray (uint8) {
 
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
-  var eLen = nBytes * 8 - mLen - 1
+  var eLen = (nBytes * 8) - mLen - 1
   var eMax = (1 << eLen) - 1
   var eBias = eMax >> 1
   var nBits = -7
@@ -13008,12 +13008,12 @@ exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   e = s & ((1 << (-nBits)) - 1)
   s >>= (-nBits)
   nBits += eLen
-  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+  for (; nBits > 0; e = (e * 256) + buffer[offset + i], i += d, nBits -= 8) {}
 
   m = e & ((1 << (-nBits)) - 1)
   e >>= (-nBits)
   nBits += mLen
-  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+  for (; nBits > 0; m = (m * 256) + buffer[offset + i], i += d, nBits -= 8) {}
 
   if (e === 0) {
     e = 1 - eBias
@@ -13028,7 +13028,7 @@ exports.read = function (buffer, offset, isLE, mLen, nBytes) {
 
 exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   var e, m, c
-  var eLen = nBytes * 8 - mLen - 1
+  var eLen = (nBytes * 8) - mLen - 1
   var eMax = (1 << eLen) - 1
   var eBias = eMax >> 1
   var rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0)
@@ -13061,7 +13061,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
       m = 0
       e = eMax
     } else if (e + eBias >= 1) {
-      m = (value * c - 1) * Math.pow(2, mLen)
+      m = ((value * c) - 1) * Math.pow(2, mLen)
       e = e + eBias
     } else {
       m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen)
@@ -13739,7 +13739,7 @@ var fontStringify = __webpack_require__(0).fontStringify;
 var isFunction = __webpack_require__(0).isFunction;
 var TextTools = __webpack_require__(42);
 var StyleContextStack = __webpack_require__(80);
-var _ = __webpack_require__(138);
+var _ = __webpack_require__(138);//MAX
 
 function addAll(target, otherArray) {
 	otherArray.forEach(function (item) {
@@ -14059,7 +14059,7 @@ function decorateNode(node) {
 	};
 }
 
-LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
+LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {//MAX +onCalculatePage
 	var self = this;
 
 	this.linearNodeList.push(node);
@@ -14094,7 +14094,7 @@ LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
 		} else if (node.table) {
 			self.processTable(node);
 		} else if (node.text !== undefined) {
-			self.processLeaf(node,onCalculatePage);
+			self.processLeaf(node,onCalculatePage);//MAX +onCalculatePage
 		} else if (node.toc) {
 			self.processToc(node);
 		} else if (node.image) {
@@ -14146,16 +14146,18 @@ LayoutBuilder.prototype.processNode = function (node,onCalculatePage) {
 // vertical container
 LayoutBuilder.prototype.processVerticalContainer = function (node) {
 	var self = this;
-	var lines=[];
+	var lines=[];//MAX collect lines:columns proj
 
 	node.stack.forEach(function (item) {
 		self.processNode(item,function(newLines){
+		//MAX callback:collect lines:columns proj
         lines=_.concat(lines,newLines);
     });
 		addAll(node.positions, item.positions);
 
 		//TODO: paragraph gap
 	});
+	//MAX callback:collect lines:columns proj
 	if(node.onCalculatePage) {
       node.onCalculatePage(lines);
   }
@@ -14346,7 +14348,7 @@ LayoutBuilder.prototype.processTable = function (tableNode) {
 };
 
 // leafs (texts)
-LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
+LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {//MAX callback:collect lines:columns proj
 	var line = this.buildNextLine(node);
 	var currentHeight = (line) ? line.getHeight() : 0;
 	var maxHeight = node.maxHeight || -1;
@@ -14358,7 +14360,7 @@ LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
 	if (node._pageRef) {
 		line._pageNodeRef = node._pageRef._nodeRef;
 	}
-
+	//MAX collect lines:columns proj
 	var lines = [line];
 	if(onCalculatePage) {
 		this.writer.tracker.events.pageChanged=this.writer.tracker.events.pageChanged || [];
@@ -14376,10 +14378,12 @@ LayoutBuilder.prototype.processLeaf = function (node,onCalculatePage) {
 		node.positions.push(positions);
 		line = this.buildNextLine(node);
 		if (line) {
+			//MAX collect lines:columns proj
 			lines.push(line);
 			currentHeight += line.getHeight();
 		}
 	}
+	//MAX callback:collect lines:columns proj
 	if(onCalculatePage) {
       //  console.log("PAGE CALCULATED")
         //console.log(lines)
@@ -16575,7 +16579,9 @@ PageElementWriter.prototype.addFragment = function (fragment, useBlockXOffset, u
 };
 
 PageElementWriter.prototype.moveToNextPage = function (pageOrientation) {
-
+	this.writer.tracker.emit('beforePageChanged', { //MAX
+      pageOrientation: pageOrientation
+  });
 	var nextPage = this.writer.context.moveToNextPage(pageOrientation);
 
 	if (nextPage.newPageCreated) {
@@ -17123,6 +17129,73 @@ TableProcessor.prototype.onRowBreak = function (rowIndex, writer) {
 	};
 };
 
+//MAX
+TableProcessor.prototype.onBeforeRowBreak = function (rowIndex, writer) {//MAX2
+	var self = this;
+	return function () {
+      var lineIndex=0,overrideY=0,overrideX=-5
+        var lineWidth = self.layout.hLineWidth(0, self.tableNode);
+    	if (lineWidth) {
+    		var offset = lineWidth / 2;
+    		var currentLine = null;
+    		var body = self.tableNode.table.body;
+
+    		for (var i = 0, l = self.rowSpanData.length; i < l; i++) {
+    			var data = self.rowSpanData[i];
+    			var shouldDrawLine = !data.rowSpan;
+
+    			// draw only if the current cell requires a top border or the cell in the
+    			// row above requires a bottom border
+    			if (shouldDrawLine && i < l - 1) {
+    				var topBorder = false, bottomBorder = false;
+
+    				// the current cell
+    				if (lineIndex < body.length) {
+    					var cell = body[lineIndex][i];
+    					topBorder = cell.border ? cell.border[1] : self.layout.defaultBorder;
+    				}
+
+    				// the cell in the row above
+    				if (lineIndex > 0) {
+    					var cellAbove = body[lineIndex - 1][i];
+    					bottomBorder = cellAbove.border ? cellAbove.border[3] : self.layout.defaultBorder;
+    				}
+
+    				shouldDrawLine = true;
+    			}
+
+    			if (!currentLine && shouldDrawLine) {
+    				currentLine = {left: data.left, width: 0};
+    			}
+
+    			if (shouldDrawLine) {
+    				currentLine.width += (data.width || 0);
+    			}
+
+    			var y = (overrideY || 0) + offset;
+
+    			if (!shouldDrawLine || i === l - 1) {
+    				if (currentLine && currentLine.width) {
+    					writer.addVector({
+    						type: 'line',
+    						x1: currentLine.left+overrideX,
+    						x2: currentLine.left + currentLine.width+overrideX,
+    						y1: y,
+    						y2: y,
+    						lineWidth: lineWidth,
+    						lineColor: isFunction(self.layout.hLineColor) ? self.layout.hLineColor(lineIndex, self.tableNode) : self.layout.hLineColor
+    					}, false, overrideY);
+    					currentLine = null;
+    				}
+    			}
+    		}
+
+    	}
+
+	};
+};
+
+
 TableProcessor.prototype.beginRow = function (rowIndex, writer) {
 	this.topLineWidth = this.layout.hLineWidth(rowIndex, this.tableNode);
 	this.rowPaddingTop = this.layout.paddingTop(rowIndex, this.tableNode);
@@ -17131,6 +17204,12 @@ TableProcessor.prototype.beginRow = function (rowIndex, writer) {
 
 	this.rowCallback = this.onRowBreak(rowIndex, writer);
 	writer.tracker.startTracking('pageChanged', this.rowCallback);
+
+	//MAX
+	if(this.tableNode.lineOnBreakRow) {
+			this.beforeRowBreakCallback = this.onBeforeRowBreak(rowIndex, writer);
+			writer.tracker.startTracking('beforePageChanged', this.beforeRowBreakCallback);//MAX2
+	}
 	if (this.dontBreakRows) {
 		writer.beginUnbreakableBlock();
 	}
@@ -17230,6 +17309,8 @@ TableProcessor.prototype.endRow = function (rowIndex, writer, pageBreaks) {
 	var l, i;
 	var self = this;
 	writer.tracker.stopTracking('pageChanged', this.rowCallback);
+	//MAX
+	writer.tracker.stopTracking('beforePageChanged', this.onBeforeRowBreak);
 	writer.context().moveDown(this.layout.paddingBottom(rowIndex, this.tableNode));
 	writer.context().availableHeight += this.reservedAtBottom;
 
